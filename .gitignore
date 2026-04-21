@@ -137,3 +137,13 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# SQLite databases
+**/prisma/data/*.db
+backend/dev.db
+backend/trash/
+backend/uploads-test/
+
+# Uploaded client documents (local / dev)
+backend/uploads/
+backend/uploads-test/

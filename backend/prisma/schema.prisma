@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  sessions     Session[]
+  createdAt    DateTime  @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model Client {
+  id            String     @id @default(cuid())
+  firstName     String
+  lastName      String
+  taxIdentifier String     @unique
+  email         String     @unique
+  phoneNumber   String
+  status        String     @default("ACTIVE")
+  deletedAt     DateTime?
+  documents     Document[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([status])
+}
+
+model Document {
+  id             String   @id @default(cuid())
+  originalName   String
+  storageKey     String   @unique
+  mimeType       String
+  sizeBytes      Int
+  description    String?
+  expirationDate DateTime
+  status         String   @default("ACTIVE")
+  deletedAt      DateTime?
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+}

@@ -1,0 +1,26 @@
+services:
+  api:
+    build: ./backend
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: file:/data/app.db
+      UPLOAD_DIR: /data/uploads
+      FRONTEND_ORIGIN: http://localhost:8080
+      SESSION_SECRET: ${SESSION_SECRET:-please-change-session-secret}
+      SEED_EMAIL: ${SEED_EMAIL:-admin@example.com}
+      SEED_PASSWORD: ${SEED_PASSWORD:-changeme}
+    volumes:
+      - api_sqlite:/data
+    ports:
+      - "4000:4000"
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  api_sqlite:

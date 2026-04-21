@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply min-h-full bg-slate-50 antialiased text-slate-800;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @keyframes revealUp {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+}
+
+@layer components {
+  /* Flat surface (kept class name to avoid churn across components) */
+  .glass-panel {
+    @apply rounded-xl border border-slate-200 bg-white;
+  }
+
+  .reveal-up {
+    opacity: 0;
+    animation: revealUp 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-slate-900;
+    background-color: #9be5f0;
+    transition: background-color 150ms ease, opacity 150ms ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: #87d9e6;
+  }
+
+  .btn-primary:active:not(:disabled) {
+    background-color: #73cddd;
+  }
+
+  .btn-primary:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn-primary:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-accent;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    @apply border-slate-300 bg-slate-50;
+  }
+
+  .btn-ghost:active:not(:disabled) {
+    @apply bg-slate-100;
+  }
+
+  .btn-ghost:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn-ghost:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-accent/70;
+  }
+
+  .icon-btn {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease;
+  }
+
+  .icon-btn:hover:not(:disabled) {
+    @apply border-slate-300 bg-slate-100 text-slate-900;
+    transform: translateY(-1px);
+  }
+
+  .icon-btn:active:not(:disabled) {
+    @apply bg-slate-200;
+    transform: translateY(0);
+  }
+
+  .icon-btn:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-accent/80;
+  }
+
+  .icon-btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+    transform: none;
+  }
+
+  .icon-btn--active {
+    @apply border-slate-900 bg-slate-900 text-white;
+  }
+
+  .icon-btn--danger {
+    @apply border-rose-200 text-rose-600;
+  }
+
+  .icon-btn--danger:hover:not(:disabled) {
+    @apply border-rose-300 bg-rose-50 text-rose-700;
+  }
+
+  .tab-btn {
+    @apply inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .tab-btn:hover:not(:disabled) {
+    @apply border-slate-300 bg-slate-100 text-slate-900;
+  }
+
+  .tab-btn:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-accent/80;
+  }
+
+  .tab-btn--active {
+    @apply border-slate-900 bg-slate-900 text-white;
+  }
+
+  .tab-btn--active:hover:not(:disabled) {
+    @apply border-slate-900 bg-slate-800 text-white;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400;
+    transition: border-color 150ms ease;
+  }
+
+  .field:hover:not(:disabled) {
+    @apply border-slate-300;
+  }
+
+  .field:focus-visible {
+    @apply border-slate-300;
+    outline: 2px solid #9be5f0;
+    outline-offset: 2px;
+  }
+
+  .field:disabled {
+    @apply cursor-not-allowed bg-slate-50 opacity-70;
+  }
+
+  dialog.morph-dialog {
+    margin: auto;
+  }
+
+  dialog.morph-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  /* Login page — ambient mesh (no layout shift) */
+  .login-brand-aurora {
+    background: radial-gradient(ellipse 90% 60% at 18% 12%, rgba(155, 229, 240, 0.36), transparent 52%),
+      radial-gradient(ellipse 70% 50% at 88% 18%, rgba(155, 229, 240, 0.2), transparent 48%),
+      radial-gradient(ellipse 80% 55% at 48% 100%, rgba(155, 229, 240, 0.15), transparent 55%);
+  }
+
+  .login-form-ambient {
+    background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(155, 229, 240, 0.14), transparent 55%),
+      radial-gradient(ellipse 80% 50% at 100% 0%, rgba(155, 229, 240, 0.09), transparent 45%);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .login-brand-aurora {
+      animation: login-aurora-breathe 14s ease-in-out infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-up {
+      opacity: 1;
+      animation: none;
+      transform: none;
+    }
+  }
+
+  @keyframes login-aurora-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.82;
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "humanit-challenge",
+  "private": true,
+  "scripts": {
+    "qa:backend": "npm --prefix backend test",
+    "qa:frontend": "npm --prefix frontend run lint && npm --prefix frontend run build",
+    "qa:docker:smoke": "docker compose up -d --build && sleep 8 && curl -fsS http://localhost:4000/api/health >/dev/null && curl -fsS http://localhost:8080 >/dev/null && docker compose down -v",
+    "qa:all": "npm run qa:backend && npm run qa:frontend && npm run qa:docker:smoke"
+  }
+}
