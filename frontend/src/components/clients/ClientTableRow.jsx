@@ -1,6 +1,10 @@
+import { getClientDocumentsBadge } from '../../lib/documentValidity'
+
 export function ClientTableRow({ client, rowIndex = 0, selected, onSelectToggle, onEdit, onDelete }) {
   const displayName = `${client.firstName} ${client.lastName}`.trim()
   const delay = `${Math.min(700, 360 + rowIndex * 70)}ms`
+  const docs = client.documents || []
+  const docsBadge = getClientDocumentsBadge(docs)
 
   return (
     <tr
@@ -19,7 +23,24 @@ export function ClientTableRow({ client, rowIndex = 0, selected, onSelectToggle,
       <td className="px-4 py-3 font-medium text-slate-900">{displayName}</td>
       <td className="px-4 py-3 text-slate-600">{client.email}</td>
       <td className="px-4 py-3 text-slate-600">{client.taxIdentifier}</td>
-      <td className="px-4 py-3 text-slate-600">{client.documents?.length || 0}</td>
+      <td className="px-4 py-3 text-slate-600">
+        <div className="flex items-center gap-2">
+          <span>{docs.length}</span>
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              docsBadge.tone === 'danger'
+                ? 'bg-rose-100 text-rose-700'
+                : docsBadge.tone === 'warning'
+                  ? 'bg-amber-100 text-amber-800'
+                  : docsBadge.tone === 'ok'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {docsBadge.label}
+          </span>
+        </div>
+      </td>
       <td className="px-4 py-3 text-right">
         <div className="flex justify-end gap-2">
           <button

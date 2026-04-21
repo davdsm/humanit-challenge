@@ -66,7 +66,7 @@ export function ClientModal({ open, mode, initial, onClose, onSaved }) {
     if (!form.lastName.trim()) nextFieldErrors.lastName = 'Last name is required.'
     if (!form.taxIdentifier.trim()) nextFieldErrors.taxIdentifier = 'Tax ID is required.'
     if (!form.email.trim()) nextFieldErrors.email = 'Email is required.'
-    if (!form.phoneNumber.trim()) nextFieldErrors.phoneNumber = 'Phone number is required.'
+    if (!String(form.phoneLocalNumber || '').trim()) nextFieldErrors.phoneNumber = 'Phone number is required.'
 
     const nextDocumentErrors = form.documents.map(() => ({}))
     for (let i = 0; i < form.documents.length; i += 1) {

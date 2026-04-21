@@ -11,7 +11,22 @@ const {
 const { createClientSchema, updateClientSchema } = require('../validators/client.schemas');
 const { HttpError } = require('../middleware/error');
 
+function documentValidity(expirationDate) {
+  const expUtc = Date.UTC(
+    expirationDate.getUTCFullYear(),
+    expirationDate.getUTCMonth(),
+    expirationDate.getUTCDate(),
+  );
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const daysToExpire = Math.floor((expUtc - todayUtc) / 86400000);
+  if (daysToExpire < 0) return { validityStatus: 'EXPIRED', isExpired: true, daysToExpire };
+  if (daysToExpire <= 30) return { validityStatus: 'EXPIRING_SOON', isExpired: false, daysToExpire };
+  return { validityStatus: 'VALID', isExpired: false, daysToExpire };
+}
+
 function serializeDocument(d) {
+  const validity = documentValidity(d.expirationDate);
   return {
     id: d.id,
     originalName: d.originalName,
@@ -21,6 +36,9 @@ function serializeDocument(d) {
     expirationDate: d.expirationDate.toISOString(),
     status: d.status,
     deletedAt: d.deletedAt ? d.deletedAt.toISOString() : null,
+    validityStatus: validity.validityStatus,
+    isExpired: validity.isExpired,
+    daysToExpire: validity.daysToExpire,
     createdAt: d.createdAt.toISOString(),
     updatedAt: d.updatedAt.toISOString(),
   };

@@ -1,8 +1,20 @@
 import { TextField } from '../ui/TextField'
+import { DEFAULT_PHONE_DIAL_CODE, PHONE_COUNTRIES } from '../../constants/phoneCountries'
 
 export function ClientFormFields({ form, onChange, taxIdDisabled, errors = {} }) {
   function patch(patch) {
     onChange({ ...form, ...patch })
+  }
+
+  function patchPhone(next = {}) {
+    const dialCode = String(next.phoneDialCode ?? form.phoneDialCode ?? DEFAULT_PHONE_DIAL_CODE).trim()
+    const local = String(next.phoneLocalNumber ?? form.phoneLocalNumber ?? '').trim()
+    const phoneNumber = local ? `${dialCode} ${local}`.trim() : dialCode
+    patch({
+      phoneDialCode: dialCode,
+      phoneLocalNumber: local,
+      phoneNumber,
+    })
   }
 
   return (
@@ -38,14 +50,34 @@ export function ClientFormFields({ form, onChange, taxIdDisabled, errors = {} })
         error={errors.email}
       />
       <div className="md:col-span-2">
-        <TextField
-          id="client-phoneNumber"
-          label="Phone number"
-          type="tel"
-          value={form.phoneNumber}
-          onChange={(e) => patch({ phoneNumber: e.target.value })}
-          error={errors.phoneNumber}
-        />
+        <div>
+          <label htmlFor="client-phoneLocalNumber" className="mb-1 block text-sm font-medium text-slate-700">
+            Phone number
+          </label>
+          <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
+            <select
+              id="client-phoneDialCode"
+              className={`field ${errors.phoneNumber ? 'border-rose-300 bg-rose-50/70' : ''}`}
+              value={form.phoneDialCode || DEFAULT_PHONE_DIAL_CODE}
+              onChange={(e) => patchPhone({ phoneDialCode: e.target.value })}
+            >
+              {PHONE_COUNTRIES.map((c) => (
+                <option key={c.iso} value={c.dialCode}>
+                  {c.label} ({c.dialCode})
+                </option>
+              ))}
+            </select>
+            <input
+              id="client-phoneLocalNumber"
+              type="tel"
+              className={`field ${errors.phoneNumber ? 'border-rose-300 bg-rose-50/70' : ''}`}
+              value={form.phoneLocalNumber || ''}
+              onChange={(e) => patchPhone({ phoneLocalNumber: e.target.value })}
+              placeholder="912 345 678"
+            />
+          </div>
+          {errors.phoneNumber ? <p className="mt-1 text-sm text-rose-700">{errors.phoneNumber}</p> : null}
+        </div>
       </div>
     </div>
   )

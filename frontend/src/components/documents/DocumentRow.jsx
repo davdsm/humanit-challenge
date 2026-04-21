@@ -2,6 +2,7 @@ import { documentDownloadUrl } from '../../lib/api'
 import { MAX_UPLOAD_BYTES } from '../../constants/upload'
 import { buildMaxFileSizeMessage } from '../../lib/errorMessages'
 import { formatBytes } from '../../lib/formatBytes'
+import { getDocumentValidity } from '../../lib/documentValidity'
 import { FormField } from '../ui/FormField'
 
 const ACCEPT =
@@ -9,6 +10,7 @@ const ACCEPT =
 
 export function DocumentRow({ clientId, index, doc, fileInputResetKey = 0, errors = {}, onPatch, onRemove, onError, canRemove }) {
   const base = `doc-${index}`
+  const validity = getDocumentValidity(doc)
 
   return (
     <div className="glass-panel p-4">
@@ -27,6 +29,17 @@ export function DocumentRow({ clientId, index, doc, fileInputResetKey = 0, error
                 </a>
                 <span className="text-slate-500"> · {formatBytes(doc.sizeBytes)}</span>
               </p>
+              <span
+                className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  validity.tone === 'danger'
+                    ? 'bg-rose-100 text-rose-700'
+                    : validity.tone === 'warning'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                {validity.label}
+              </span>
             </div>
           ) : (
             <FormField id={`${base}-file`} label="Choose file" error={errors.file}>

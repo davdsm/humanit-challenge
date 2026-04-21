@@ -19,6 +19,7 @@ export function ClientDirectoryPage({ onLogout, onSessionExpired }) {
   })
   const stats = useMemo(() => computeClientStats(clients), [clients])
   const [view, setView] = useState('directory')
+  const [directoryDocFilter, setDirectoryDocFilter] = useState('all')
   const [trashEntity, setTrashEntity] = useState('clients')
   const {
     trashedClients,
@@ -34,7 +35,7 @@ export function ClientDirectoryPage({ onLogout, onSessionExpired }) {
     permanentlyDeleteDocument,
     bulkPermanentlyDeleteDocuments,
   } = useTrashBin({
-    active: view === 'trash',
+    active: true,
     onUnauthorized: onSessionExpired,
   })
 
@@ -55,7 +56,6 @@ export function ClientDirectoryPage({ onLogout, onSessionExpired }) {
   const [confirmBusy, setConfirmBusy] = useState(false)
   const { captureTrigger, restoreTrigger } = useFocusReturn()
 
-  const allSelected = clients.length > 0 && clients.every((c) => selectedClientIds.has(c.id))
   const allTrashedClientsSelected = trashedClients.length > 0 && trashedClients.every((c) => selectedTrashedClientIds.has(c.id))
   const allTrashedDocumentsSelected =
     trashedDocuments.length > 0 && trashedDocuments.every((d) => selectedTrashedDocumentIds.has(d.id))
@@ -69,10 +69,10 @@ export function ClientDirectoryPage({ onLogout, onSessionExpired }) {
     })
   }
 
-  function toggleSelectAll() {
+  function toggleSelectAll(clientIds = clients.map((c) => c.id)) {
     setSelectedClientIds((prev) => {
-      if (clients.length > 0 && clients.every((c) => prev.has(c.id))) return new Set()
-      return new Set(clients.map((c) => c.id))
+      if (clientIds.length > 0 && clientIds.every((id) => prev.has(id))) return new Set()
+      return new Set(clientIds)
     })
   }
 
@@ -226,6 +226,7 @@ export function ClientDirectoryPage({ onLogout, onSessionExpired }) {
           onAddClient={openCreateModal}
           onRefresh={view === 'directory' ? refresh : refreshTrash}
           loading={view === 'directory' ? loading : trashLoading}
+          trashCount={trashedClients.length + trashedDocuments.length}
           onLogout={handleLogout}
         />
       </div>
@@ -238,18 +239,19 @@ export function ClientDirectoryPage({ onLogout, onSessionExpired }) {
         {view === 'directory' ? (
           <>
             <div className="reveal-up" style={{ '--reveal-delay': '240ms' }}>
-              <ClientStatsCards stats={stats} />
+              <ClientStatsCards stats={stats} activeFilter={directoryDocFilter} onSelectFilter={setDirectoryDocFilter} />
             </div>
             <div className="mt-6 reveal-up" style={{ '--reveal-delay': '330ms' }}>
               <ClientTable
                 clients={clients}
                 selectedIds={selectedClientIds}
-                allSelected={allSelected}
                 onSelectAllToggle={toggleSelectAll}
                 onSelectToggle={toggleClientSelection}
                 onClearSelection={clearSelection}
                 onBulkDelete={handleBulkDelete}
                 onEdit={openEditModal}
+                docFilter={directoryDocFilter}
+                onDocFilterChange={setDirectoryDocFilter}
                 onDelete={(client) => {
                   const name = `${client.firstName} ${client.lastName}`.trim()
                   setConfirmState({

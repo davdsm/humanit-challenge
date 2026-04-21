@@ -1,6 +1,6 @@
 import { APP_IMAGES } from '../../constants/images'
 
-export function ClientPageHeader({ view, onSwitchView, onAddClient, onRefresh, loading, onLogout }) {
+export function ClientPageHeader({ view, onSwitchView, onAddClient, onRefresh, loading, onLogout, trashCount = 0 }) {
   return (
     <header className="glass-panel relative overflow-hidden p-6 md:p-7">
       <img
@@ -32,7 +32,7 @@ export function ClientPageHeader({ view, onSwitchView, onAddClient, onRefresh, l
           </button>
           <button
             type="button"
-            className={`icon-btn h-10 w-10 ${view === 'trash' ? 'icon-btn--active' : ''}`}
+            className={`icon-btn relative h-10 w-10 ${view === 'trash' ? 'icon-btn--active' : ''}`}
             onClick={() => onSwitchView('trash')}
             aria-label="Trash view"
             title="Trash"
@@ -40,6 +40,11 @@ export function ClientPageHeader({ view, onSwitchView, onAddClient, onRefresh, l
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            {trashCount > 0 ? (
+              <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold text-white">
+                {trashCount > 99 ? '99+' : trashCount}
+              </span>
+            ) : null}
           </button>
           <button type="button" className="btn-primary h-10 w-10 p-0" onClick={onAddClient} aria-label="Add client" title="Add client">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>

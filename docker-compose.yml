@@ -1,6 +1,7 @@
 services:
-  api:
+  humanit-api:
     build: ./backend
+    container_name: humanit-api
     environment:
       PORT: 4000
       NODE_ENV: production
@@ -15,12 +16,13 @@ services:
     ports:
       - "4000:4000"
 
-  web:
+  humanit-app:
     build: ./frontend
+    container_name: humanit-app
     ports:
       - "8080:80"
     depends_on:
-      - api
+      - humanit-api
 
 volumes:
   api_sqlite:

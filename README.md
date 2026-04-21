@@ -122,6 +122,11 @@ Trash behavior:
 - Permanent delete is the only action that removes records/files irreversibly.
 - After file moves/deletes, empty parent folders are automatically removed.
 
+Document expiration status:
+- `Expired`: document expiration date is before today.
+- `Expiring soon`: document expires in 0 to 30 days.
+- `Valid`: document expires in more than 30 days.
+
 ## License
 
 See [LICENSE](LICENSE).

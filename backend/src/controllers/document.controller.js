@@ -4,6 +4,20 @@ const config = require('../config');
 const documentService = require('../services/document.service');
 const { HttpError } = require('../middleware/error');
 
+function documentValidity(expirationDate) {
+  const expUtc = Date.UTC(
+    expirationDate.getUTCFullYear(),
+    expirationDate.getUTCMonth(),
+    expirationDate.getUTCDate(),
+  );
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const daysToExpire = Math.floor((expUtc - todayUtc) / 86400000);
+  if (daysToExpire < 0) return { validityStatus: 'EXPIRED', isExpired: true, daysToExpire };
+  if (daysToExpire <= 30) return { validityStatus: 'EXPIRING_SOON', isExpired: false, daysToExpire };
+  return { validityStatus: 'VALID', isExpired: false, daysToExpire };
+}
+
 const uploadFieldsSchema = z.object({
   expirationDate: z.coerce.date(),
   description: z.string().max(2000).nullable().optional(),
@@ -15,6 +29,7 @@ const patchDocumentSchema = z.object({
 });
 
 function serializeDocument(doc) {
+  const validity = documentValidity(doc.expirationDate);
   return {
     id: doc.id,
     originalName: doc.originalName,
@@ -24,6 +39,9 @@ function serializeDocument(doc) {
     expirationDate: doc.expirationDate.toISOString(),
     status: doc.status,
     deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
+    validityStatus: validity.validityStatus,
+    isExpired: validity.isExpired,
+    daysToExpire: validity.daysToExpire,
     clientId: doc.clientId,
     client: doc.client
       ? {
