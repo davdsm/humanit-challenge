@@ -25,7 +25,6 @@ Full-stack implementation of the exercise: **Express + Prisma + SQLite** REST AP
 cd backend
 cp ../.env.example .env   # optional; defaults match local dev (SQLite under prisma/data)
 npm install
-mkdir -p prisma/data
 npx prisma migrate dev    # creates/updates DB from committed migrations; may run seed (see package.json)
 npm run db:seed           # idempotent seed user (default admin@example.com / changeme)
 ```
