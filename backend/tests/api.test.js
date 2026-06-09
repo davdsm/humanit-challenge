@@ -241,6 +241,41 @@ describe('API', () => {
     expect(res.headers['content-type']).toContain('application/pdf');
   });
 
+  it('POST /api/auth/login stores hashed session token, not plaintext', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: SEED_EMAIL, password: SEED_PASSWORD })
+      .expect(200);
+
+    const cookieHeader = res.headers['set-cookie'].find((c) => c.startsWith('sid='));
+    const token = decodeURIComponent(cookieHeader.split(';')[0].slice('sid='.length));
+
+    const sessions = await prisma.session.findMany({ include: { user: true } });
+    const session = sessions.find((s) => s.user.email === SEED_EMAIL);
+    expect(session).toBeDefined();
+    expect(session.tokenHash).not.toBe(token);
+    expect(session.tokenHash).toHaveLength(64);
+  });
+
+  it('GET /api/clients rejects expired session and removes it from DB', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/auth/login').send({ email: SEED_EMAIL, password: SEED_PASSWORD }).expect(200);
+
+    const sessions = await prisma.session.findMany({ where: { user: { email: SEED_EMAIL } } });
+    expect(sessions.length).toBeGreaterThan(0);
+
+    const activeSession = sessions[sessions.length - 1];
+    await prisma.session.update({
+      where: { id: activeSession.id },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+
+    await agent.get('/api/clients').expect(401);
+
+    const deleted = await prisma.session.findUnique({ where: { id: activeSession.id } });
+    expect(deleted).toBeNull();
+  });
+
   it('GET /api/clients lists clients', async () => {
     const agent = request.agent(app);
     await agent.post('/api/auth/login').send({ email: SEED_EMAIL, password: SEED_PASSWORD }).expect(200);

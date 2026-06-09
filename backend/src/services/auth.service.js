@@ -1,12 +1,8 @@
 const bcrypt = require('bcryptjs');
-const { randomBytes } = require('crypto');
 const config = require('../config');
 const { prisma } = require('../lib/prisma');
+const { createOpaqueToken, hashToken } = require('../lib/token');
 const { HttpError } = require('../middleware/error');
-
-function createOpaqueToken() {
-  return randomBytes(32).toString('hex');
-}
 
 async function login({ email, password }) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -20,10 +16,11 @@ async function login({ email, password }) {
   }
 
   const token = createOpaqueToken();
+  const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + config.sessionTtlMs);
 
   await prisma.session.create({
-    data: { token, userId: user.id, expiresAt },
+    data: { tokenHash, userId: user.id, expiresAt },
   });
 
   return { token, user: { id: user.id, email: user.email } };
@@ -31,7 +28,7 @@ async function login({ email, password }) {
 
 async function logoutByToken(token) {
   if (!token) return;
-  await prisma.session.deleteMany({ where: { token } });
+  await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
 }
 
 module.exports = { login, logoutByToken };

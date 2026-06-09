@@ -25,4 +25,7 @@ module.exports = {
   uploadDir,
   trashDir,
   maxUploadBytes: toInt(process.env.MAX_UPLOAD_BYTES, 10 * 1024 * 1024),
+  loginRateLimitWindowMs: toInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+  loginRateLimitMax: toInt(process.env.LOGIN_RATE_LIMIT_MAX, 10),
+  sessionCleanupIntervalMs: toInt(process.env.SESSION_CLEANUP_INTERVAL_MS, 60 * 60 * 1000),
 };

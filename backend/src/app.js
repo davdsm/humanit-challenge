@@ -1,6 +1,7 @@
 const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const swaggerUi = require('swagger-ui-express');
 const config = require('./config');
@@ -18,6 +19,12 @@ function createApp() {
 
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);
+  app.use(
+    helmet({
+      contentSecurityPolicy: config.nodeEnv === 'production',
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
   app.use(
     cors({
       origin: config.frontendOrigin,

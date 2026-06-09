@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ClientStatus {
+  ACTIVE
+  DELETED
+}
+
+enum DocumentStatus {
+  ACTIVE
+  DELETED
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -17,45 +27,46 @@ model User {
 
 model Session {
   id        String   @id @default(cuid())
-  token     String   @unique
+  tokenHash String   @unique
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@index([token])
+  @@index([tokenHash])
+  @@index([expiresAt])
 }
 
 model Client {
-  id            String     @id @default(cuid())
+  id            String       @id @default(cuid())
   firstName     String
   lastName      String
-  taxIdentifier String     @unique
-  email         String     @unique
+  taxIdentifier String       @unique
+  email         String       @unique
   phoneNumber   String
-  status        String     @default("ACTIVE")
+  status        ClientStatus @default(ACTIVE)
   deletedAt     DateTime?
   documents     Document[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([status])
 }
 
 model Document {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   originalName   String
-  storageKey     String   @unique
+  storageKey     String         @unique
   mimeType       String
   sizeBytes      Int
   description    String?
   expirationDate DateTime
-  status         String   @default("ACTIVE")
+  status         DocumentStatus @default(ACTIVE)
   deletedAt      DateTime?
   clientId       String
-  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([clientId])
   @@index([status])

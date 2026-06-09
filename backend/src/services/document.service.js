@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const { ClientStatus, DocumentStatus } = require('@prisma/client');
 const { prisma } = require('../lib/prisma');
 const { HttpError } = require('../middleware/error');
 const config = require('../config');
@@ -82,12 +83,81 @@ function isMimeConsistentWithExt(mimetype, ext) {
   return false;
 }
 
+function planTrashMove(doc, client, now = new Date()) {
+  const ext = extractExtFromStorageKey(doc.storageKey);
+  const trashRelativeKey = trashStorageKey(client, doc.id, ext, now);
+  return {
+    documentId: doc.id,
+    sourcePath: path.join(config.uploadDir, doc.storageKey),
+    targetPath: path.join(config.trashDir, trashRelativeKey),
+    trashRelativeKey,
+    originalStorageKey: doc.storageKey,
+  };
+}
+
+async function moveFileToTrash({ sourcePath, targetPath }) {
+  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
+  try {
+    await fsp.rename(sourcePath, targetPath);
+    await removeEmptyParentDirs(config.uploadDir, sourcePath);
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+}
+
+async function revertSoftDeleteInDb(documentId, originalStorageKey, db = prisma) {
+  await db.document.update({
+    where: { id: documentId },
+    data: {
+      status: DocumentStatus.ACTIVE,
+      deletedAt: null,
+      storageKey: originalStorageKey,
+    },
+  });
+}
+
+async function softDeleteDocumentsInDb(docs, client, { tx, now = new Date() } = {}) {
+  const db = tx || prisma;
+  const moves = docs.map((doc) => planTrashMove(doc, client, now));
+  const updates = moves.map(({ documentId, trashRelativeKey }) =>
+    db.document.update({
+      where: { id: documentId },
+      data: {
+        status: DocumentStatus.DELETED,
+        deletedAt: now,
+        storageKey: trashRelativeKey,
+      },
+    }),
+  );
+
+  if (tx) {
+    await Promise.all(updates);
+  } else {
+    await prisma.$transaction(updates);
+  }
+
+  return moves;
+}
+
+async function executeTrashMoves(moves) {
+  const results = await Promise.allSettled(moves.map((move) => moveFileToTrash(move)));
+  const failures = [];
+
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'rejected') {
+      failures.push({ move: moves[i], error: results[i].reason });
+    }
+  }
+
+  return { failures };
+}
+
 async function assertClientExists(clientId) {
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client) {
     throw new HttpError(404, 'Client not found', { code: 'NOT_FOUND' });
   }
-  if (client.status === 'DELETED') {
+  if (client.status === ClientStatus.DELETED) {
     throw new HttpError(409, 'Client is in trash', { code: 'CLIENT_IN_TRASH' });
   }
   return client;
@@ -141,7 +211,7 @@ async function createDocumentFromUpload({
       sizeBytes: buffer.length,
       description: desc,
       expirationDate: exp,
-      status: 'ACTIVE',
+      status: DocumentStatus.ACTIVE,
       clientId,
     },
   });
@@ -158,7 +228,7 @@ async function createDocumentFromUpload({
 
 async function findDocumentOr404(clientId, documentId) {
   const doc = await prisma.document.findFirst({
-    where: { id: documentId, clientId, status: 'ACTIVE' },
+    where: { id: documentId, clientId, status: DocumentStatus.ACTIVE },
   });
   if (!doc) {
     throw new HttpError(404, 'Document not found', { code: 'NOT_FOUND' });
@@ -168,7 +238,7 @@ async function findDocumentOr404(clientId, documentId) {
 
 async function findTrashedDocumentOr404(documentId) {
   const doc = await prisma.document.findFirst({
-    where: { id: documentId, status: 'DELETED' },
+    where: { id: documentId, status: DocumentStatus.DELETED },
   });
   if (!doc) {
     throw new HttpError(404, 'Trashed document not found', { code: 'NOT_FOUND' });
@@ -205,28 +275,23 @@ async function updateDocumentMeta(clientId, documentId, { expirationDate, descri
 async function deleteDocument(clientId, documentId) {
   const doc = await findDocumentOr404(clientId, documentId);
   const client = await assertClientExists(clientId);
-  const sourcePath = path.join(config.uploadDir, doc.storageKey);
-  const ext = extractExtFromStorageKey(doc.storageKey);
-  const trashRelativeKey = trashStorageKey(client, doc.id, ext, new Date());
-  const targetPath = path.join(config.trashDir, trashRelativeKey);
-
-  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
-
-  try {
-    await fsp.rename(sourcePath, targetPath);
-    await removeEmptyParentDirs(config.uploadDir, sourcePath);
-  } catch (e) {
-    if (e.code !== 'ENOENT') throw e;
-  }
+  const move = planTrashMove(doc, client);
 
   await prisma.document.update({
     where: { id: documentId },
     data: {
-      status: 'DELETED',
+      status: DocumentStatus.DELETED,
       deletedAt: new Date(),
-      storageKey: trashRelativeKey,
+      storageKey: move.trashRelativeKey,
     },
   });
+
+  try {
+    await moveFileToTrash(move);
+  } catch (e) {
+    await revertSoftDeleteInDb(documentId, move.originalStorageKey).catch(() => {});
+    throw e;
+  }
 
   return { ok: true };
 }
@@ -239,23 +304,41 @@ async function restoreDocument(documentId) {
   const nextStorageKey = uploadStorageKey(client, doc.id, ext, new Date());
   const sourcePath = path.join(config.trashDir, doc.storageKey);
   const targetPath = path.join(config.uploadDir, nextStorageKey);
+  const originalStorageKey = doc.storageKey;
+  const originalDeletedAt = doc.deletedAt;
 
-  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
-  try {
-    await fsp.rename(sourcePath, targetPath);
-    await removeEmptyParentDirs(config.trashDir, sourcePath);
-  } catch (e) {
-    if (e.code !== 'ENOENT') throw e;
-  }
-
-  return prisma.document.update({
+  await prisma.document.update({
     where: { id: doc.id },
     data: {
-      status: 'ACTIVE',
+      status: DocumentStatus.ACTIVE,
       deletedAt: null,
       storageKey: nextStorageKey,
     },
   });
+
+  try {
+    await fsp.mkdir(path.dirname(targetPath), { recursive: true });
+    try {
+      await fsp.rename(sourcePath, targetPath);
+      await removeEmptyParentDirs(config.trashDir, sourcePath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') throw e;
+    }
+  } catch (e) {
+    await prisma.document
+      .update({
+        where: { id: doc.id },
+        data: {
+          status: DocumentStatus.DELETED,
+          deletedAt: originalDeletedAt ?? new Date(),
+          storageKey: originalStorageKey,
+        },
+      })
+      .catch(() => {});
+    throw e;
+  }
+
+  return prisma.document.findUniqueOrThrow({ where: { id: doc.id } });
 }
 
 async function permanentlyDeleteDocument(documentId) {
@@ -273,7 +356,7 @@ async function listTrashedDocuments({ page = 1, limit = 20 } = {}) {
 
   const [items, total] = await prisma.$transaction([
     prisma.document.findMany({
-      where: { status: 'DELETED' },
+      where: { status: DocumentStatus.DELETED },
       skip,
       take,
       orderBy: { deletedAt: 'desc' },
@@ -283,30 +366,50 @@ async function listTrashedDocuments({ page = 1, limit = 20 } = {}) {
         },
       },
     }),
-    prisma.document.count({ where: { status: 'DELETED' } }),
+    prisma.document.count({ where: { status: DocumentStatus.DELETED } }),
   ]);
 
   return { items, page: Number(page) || 1, limit: take, total };
 }
 
-async function softDeleteActiveDocumentsForClient(clientId) {
-  const docs = await prisma.document.findMany({
-    where: { clientId, status: 'ACTIVE' },
-    select: { id: true },
+async function softDeleteActiveDocumentsForClient(clientId, clientHint, { tx } = {}) {
+  const db = tx || prisma;
+  const client = clientHint || (await db.client.findUnique({ where: { id: clientId } }));
+  if (!client) return [];
+
+  const docs = await db.document.findMany({
+    where: { clientId, status: DocumentStatus.ACTIVE },
   });
-  for (const d of docs) {
-    await deleteDocument(clientId, d.id);
-  }
+  if (!docs.length) return [];
+
+  return softDeleteDocumentsInDb(docs, client, { tx: db });
+}
+
+async function finalizeTrashMoves(moves) {
+  if (!moves.length) return;
+
+  const { failures } = await executeTrashMoves(moves);
+  if (!failures.length) return;
+
+  await Promise.all(
+    failures.map(({ move }) => revertSoftDeleteInDb(move.documentId, move.originalStorageKey)),
+  );
+
+  throw new HttpError(500, 'Failed to move one or more documents to trash', {
+    code: 'STORAGE_ERROR',
+    failedCount: failures.length,
+  });
 }
 
 async function restoreAllDocumentsForClient(clientId) {
   const docs = await prisma.document.findMany({
-    where: { clientId, status: 'DELETED' },
+    where: { clientId, status: DocumentStatus.DELETED },
     select: { id: true },
   });
-  for (const d of docs) {
-    await restoreDocument(d.id);
-  }
+
+  const results = await Promise.allSettled(docs.map((d) => restoreDocument(d.id)));
+  const rejected = results.find((r) => r.status === 'rejected');
+  if (rejected) throw rejected.reason;
 }
 
 function sendDocumentFile(doc, res, next) {
@@ -334,7 +437,7 @@ async function unlinkAllFilesForClient(clientId) {
   });
   await Promise.all(
     docs.map(async (d) => {
-      const baseDir = d.status === 'DELETED' ? config.trashDir : config.uploadDir;
+      const baseDir = d.status === DocumentStatus.DELETED ? config.trashDir : config.uploadDir;
       const filePath = path.join(baseDir, d.storageKey);
       await fsp.unlink(filePath).catch(() => {});
       await removeEmptyParentDirs(baseDir, filePath);
@@ -350,6 +453,7 @@ module.exports = {
   permanentlyDeleteDocument,
   listTrashedDocuments,
   softDeleteActiveDocumentsForClient,
+  finalizeTrashMoves,
   restoreAllDocumentsForClient,
   findDocumentOr404,
   sendDocumentFile,
